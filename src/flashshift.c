@@ -133,6 +133,11 @@ void FlashShift_Update(bool g_key_held) {
         fs_shift_frames_left = 0;
         break;
       }
+      // Adjust Y to follow slope contour. Horizontal slope collision only
+      // scales the movement amount — it never blocks or adjusts Y. Without
+      // this call, fast horizontal movement embeds Samus inside slopes
+      // (hills), leaving the game in an invalid state that crashes the ROM.
+      Samus_AlignYPosSlope();
     }
 
     // Zero momentum and hold animation during dash
@@ -292,6 +297,7 @@ void FlashShift_Update(bool g_key_held) {
 
   // Start multi-frame dash
   fs_shift_frames_left = kFlashShift_ShiftFrames;
+  enable_horiz_slope_coll |= 2;  // ensure Samus_AlignYPosSlope works during dash
 
   // Visual effects (run through both dash and freeze phases)
   samus_invincibility_timer = kFlashShift_Invincibility;
