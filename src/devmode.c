@@ -323,60 +323,9 @@ void DevMode_HandleInput(int key, bool pressed) {
     }
     return;
   case SDLK_UP:
-    if (menu.section == kSection_Rooms) {
-      if (menu.room_sel > 0) menu.room_sel--;
-    } else if (menu.section == kSection_Items) {
-      if (menu.item_cursor > 0) menu.item_cursor--;
-      else menu.section--;
-    } else if (menu.section == kSection_Beams) {
-      if (menu.beam_cursor > 0) menu.beam_cursor--;
-      else menu.section--;
-    } else if (menu.section == kSection_Extras) {
-      if (menu.extras_cursor > 0) menu.extras_cursor--;
-      else menu.section--;
-    } else {
-      if (menu.section > 0) menu.section--;
-    }
-    return;
-  case SDLK_DOWN:
-    if (menu.section == kSection_Rooms) {
-      if (menu.room_sel < kNumRooms - 1) menu.room_sel++;
-      else menu.section++;
-    } else if (menu.section == kSection_Items) {
-      if (menu.item_cursor < kNumItems - 1) menu.item_cursor++;
-      else menu.section++;
-    } else if (menu.section == kSection_Beams) {
-      if (menu.beam_cursor < kNumBeams - 1) menu.beam_cursor++;
-      else menu.section++;
-    } else if (menu.section == kSection_Extras) {
-      /* already at bottom */
-    } else {
-      if (menu.section < kSection_Count - 1) menu.section++;
-    }
-    return;
-  case SDLK_LEFT:
     switch (menu.section) {
     case kSection_Rooms:
       if (menu.room_sel > 0) menu.room_sel--;
-      break;
-    case kSection_Health:
-      AdjustMaxValue(&menu.health, &menu.max_health, -100, 2099);
-      break;
-    case kSection_Missiles:
-      AdjustMaxValue(&menu.missiles, &menu.max_missiles, -5, 230);
-      break;
-    case kSection_Supers:
-      AdjustMaxValue(&menu.supers, &menu.max_supers, -5, 50);
-      break;
-    case kSection_PBombs:
-      AdjustMaxValue(&menu.pbombs, &menu.max_pbombs, -5, 50);
-      break;
-    }
-    return;
-  case SDLK_RIGHT:
-    switch (menu.section) {
-    case kSection_Rooms:
-      if (menu.room_sel < kNumRooms - 1) menu.room_sel++;
       break;
     case kSection_Health:
       AdjustMaxValue(&menu.health, &menu.max_health, 100, 2099);
@@ -390,7 +339,49 @@ void DevMode_HandleInput(int key, bool pressed) {
     case kSection_PBombs:
       AdjustMaxValue(&menu.pbombs, &menu.max_pbombs, 5, 50);
       break;
+    case kSection_Items:
+      if (menu.item_cursor > 0) menu.item_cursor--;
+      break;
+    case kSection_Beams:
+      if (menu.beam_cursor > 0) menu.beam_cursor--;
+      break;
+    case kSection_Extras:
+      if (menu.extras_cursor > 0) menu.extras_cursor--;
+      break;
     }
+    return;
+  case SDLK_DOWN:
+    switch (menu.section) {
+    case kSection_Rooms:
+      if (menu.room_sel < kNumRooms - 1) menu.room_sel++;
+      break;
+    case kSection_Health:
+      AdjustMaxValue(&menu.health, &menu.max_health, -100, 2099);
+      break;
+    case kSection_Missiles:
+      AdjustMaxValue(&menu.missiles, &menu.max_missiles, -5, 230);
+      break;
+    case kSection_Supers:
+      AdjustMaxValue(&menu.supers, &menu.max_supers, -5, 50);
+      break;
+    case kSection_PBombs:
+      AdjustMaxValue(&menu.pbombs, &menu.max_pbombs, -5, 50);
+      break;
+    case kSection_Items:
+      if (menu.item_cursor < kNumItems - 1) menu.item_cursor++;
+      break;
+    case kSection_Beams:
+      if (menu.beam_cursor < kNumBeams - 1) menu.beam_cursor++;
+      break;
+    case kSection_Extras:
+      break;
+    }
+    return;
+  case SDLK_LEFT:
+    if (menu.section > 0) menu.section--;
+    return;
+  case SDLK_RIGHT:
+    if (menu.section < kSection_Count - 1) menu.section++;
     return;
   case SDLK_RETURN:
   case SDLK_SPACE:
