@@ -14,7 +14,7 @@ enum {
   kFlashShift_StepSize = 4,
   kFlashShift_Steps = 20,           // 80px total / 4px per step (5 tiles)
   kFlashShift_MaxCharges = 3,
-  kFlashShift_Cooldown = 20,        // frames between uses
+  kFlashShift_Cooldown = 6,         // frames between uses
   kFlashShift_EmptyCooldown = 60,   // frames when all charges spent
   kFlashShift_RegenTime = 20,       // frames to regen one charge
   kFlashShift_Invincibility = 30,   // frames of post-shift i-frames (blink)
@@ -71,7 +71,7 @@ void FlashShift_Update(bool g_key_held) {
   if (!fs_enabled)
     return;
 
-  // Post-shift movement freeze: zero all momentum each frame
+  // Post-shift movement freeze: zero all momentum and hold animation
   if (fs_freeze_timer > 0) {
     fs_freeze_timer--;
     samus_x_base_speed = 0;
@@ -80,6 +80,9 @@ void FlashShift_Update(bool g_key_held) {
     samus_x_extra_run_subspeed = 0;
     samus_y_speed = 0;
     samus_y_subspeed = 0;
+    // Hold animation timer at 2 so Samus_Animate() decrements it to 1
+    // but never reaches 0 (which would advance the frame).
+    samus_anim_frame_timer = 2;
   }
 
   // Post-shift flash: keep resetting hurt_flash_counter to 3 so the
@@ -210,6 +213,27 @@ void FlashShift_Update(bool g_key_held) {
     UpdatePreviousLayerBlocks();
   }
 
+  // Instantly face the shift direction and set a clean pose.
+  // This breaks spin jumps into falling, and prevents the slow
+  // turn-around animation when shifting opposite to current facing.
+  {
+    samus_pose_x_dir = right ? 0 : 4;
+    bool airborne = (samus_movement_type == kMovementType_02_NormalJumping ||
+                     samus_movement_type == kMovementType_03_SpinJumping ||
+                     samus_movement_type == kMovementType_06_Falling ||
+                     samus_movement_type == kMovementType_14_WallJumping ||
+                     samus_movement_type == kMovementType_17_TurningAroundJumping ||
+                     samus_movement_type == kMovementType_18_TurningAroundFalling);
+    if (airborne) {
+      samus_movement_type = kMovementType_06_Falling;
+      samus_pose = right ? kPose_29_FaceR_Fall : kPose_2A_FaceL_Fall;
+    } else {
+      samus_movement_type = kMovementType_00_Standing;
+      samus_pose = right ? kPose_01_FaceR_Normal : kPose_02_FaceL_Normal;
+    }
+    samus_anim_frame = 0;
+  }
+
   // Post-shift effects
   samus_invincibility_timer = kFlashShift_Invincibility;
   samus_hurt_flash_counter = 3;
@@ -217,11 +241,13 @@ void FlashShift_Update(bool g_key_held) {
   fs_freeze_timer = kFlashShift_FreezeFrames;
 
   // Shinespark charge SFX on channel 3, cut short after ~0.25s.
-  // Flush any pending channel 3 sounds first so footsteps etc. don't
-  // play instead of our shift sound.
-  sfx_readpos[2] = sfx_writepos[2];
-  sfx_state[2] = 0;
+  // Silence the APU first so it restarts from the beginning even if
+  // the same sound was already playing, then flush the queue and
+  // reset the state machine before queuing the fresh sound.
+  RtlApuWrite(APUI03, 0);
   sfx_cur[2] = 0;
+  sfx_state[2] = 0;
+  sfx_readpos[2] = sfx_writepos[2];
   QueueSfx3_Max9(0xC);
   fs_sfx_timer = kFlashShift_SfxDuration;
 }
