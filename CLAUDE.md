@@ -63,6 +63,28 @@ Runtime config is in `sm.ini` (INI format parsed by `src/config.c`). Controls gr
 - Game code files named by ROM bank: `sm_80.c` = bank $80, `sm_90.c` = bank $90, etc.
 - Coroutine macros (`COROUTINE_BEGIN`, `COROUTINE_AWAIT`, `COROUTINE_END`) used for async game logic
 
+## Dev Mode
+
+An interactive overlay menu for rapid testing. Press **` (backquote/tilde)** during gameplay to open.
+
+**Files:** `src/devmode.c`, `src/devmode.h` (self-contained module)
+**Integration points:** `src/main.c` (hotkey, input routing, render hook), `src/sm_rtl.c` (warp execution), `src/config.h`/`src/config.c` (keybinding as `kKeys_DevMode`)
+
+**Features:**
+- Select a room from a curated list (14 locations across all areas)
+- Configure Samus's loadout: health, missiles, supers, power bombs
+- Toggle items (Morph Ball, Varia Suit, etc.) and beams (Charge, Wave, Ice, etc.)
+- Press **W** to warp — sets game state to trigger `LoadFromLoadStation()`, then re-applies loadout after loading completes
+
+**Controls when menu is open:**
+- Up/Down: Navigate sections and room list
+- Left/Right: Adjust numeric values
+- Enter/Space: Toggle item/beam checkboxes
+- W: Execute warp
+- Escape or `: Close without warping
+
+**How warping works:** Sets `area_index`, `load_station_index`, `game_state = 6`, `loading_game_state = 5`, `coroutine_state_1 = 0`, then calls `RtlSynchronizeWholeState()`. A pending-overrides flag re-applies the loadout once `game_state` reaches 8 (main gameplay), since the loading sequence may clear item/health RAM.
+
 ## Compiler Flags
 
 Default: `-O2 -fno-strict-aliasing -Werror`. The `-fno-strict-aliasing` is important because the codebase does extensive type-punning through pointer casts (SNES memory access patterns). `-Werror` means all warnings are errors.
