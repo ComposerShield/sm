@@ -121,6 +121,14 @@ void RtlSaveSnapshot(const char *filename, bool saving_with_bug);
 void RtlUpdateSnesPatchForBugfix();
 extern uint16 currently_installed_bug_fix_counter;
 
+void RtlDevModeWarp(uint8 area, uint8 station,
+                     uint16 items, uint16 beams,
+                     uint16 health, uint16 max_health,
+                     uint16 missiles, uint16 max_missiles,
+                     uint16 supers, uint16 max_supers,
+                     uint16 pbombs, uint16 max_pbombs);
+void RtlDevModeCheckPendingOverrides(void);
+
 uint16 Mult8x8(uint8 a, uint8 b);
 uint16 SnesDivide(uint16 a, uint8 b);
 uint16 SnesModulus(uint16 a, uint8 b);

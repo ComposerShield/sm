@@ -1,7 +1,7 @@
 #include "sm_rtl.h"
 #include "sm_cpu_infra.h"
 #include "types.h"
-//#include "ida_types.h"
+#include "ida_types.h"
 #include "variables.h"
 #include "funcs.h"
 #include "spc_player.h"
@@ -732,4 +732,69 @@ void RtlWriteSram(void) {
   } else {
     fprintf(stderr, "Unable to write saves/sm.srm\n");
   }
+}
+
+// Dev mode warp state
+static bool g_devmode_pending_overrides;
+static uint16 g_devmode_items, g_devmode_beams;
+static uint16 g_devmode_health, g_devmode_max_health;
+static uint16 g_devmode_missiles, g_devmode_max_missiles;
+static uint16 g_devmode_supers, g_devmode_max_supers;
+static uint16 g_devmode_pbombs, g_devmode_max_pbombs;
+
+void RtlDevModeWarp(uint8 area, uint8 station,
+                     uint16 items, uint16 beams,
+                     uint16 health, uint16 max_health,
+                     uint16 missiles, uint16 max_missiles,
+                     uint16 supers, uint16 max_supers,
+                     uint16 pbombs, uint16 max_pbombs) {
+  area_index = area;
+  load_station_index = station;
+  equipped_items = collected_items = items;
+  equipped_beams = collected_beams = beams;
+  samus_health = health;
+  samus_max_health = max_health;
+  samus_missiles = missiles;
+  samus_max_missiles = max_missiles;
+  samus_super_missiles = supers;
+  samus_max_super_missiles = max_supers;
+  samus_power_bombs = pbombs;
+  samus_max_power_bombs = max_pbombs;
+  loading_game_state = kLoadingGameState_5_Main;
+  game_state = kGameState_6_LoadingGameData;
+  coroutine_state_1 = 0;
+  RtlSynchronizeWholeState();
+
+  // Save override values to re-apply after loading completes
+  g_devmode_items = items;
+  g_devmode_beams = beams;
+  g_devmode_health = health;
+  g_devmode_max_health = max_health;
+  g_devmode_missiles = missiles;
+  g_devmode_max_missiles = max_missiles;
+  g_devmode_supers = supers;
+  g_devmode_max_supers = max_supers;
+  g_devmode_pbombs = pbombs;
+  g_devmode_max_pbombs = max_pbombs;
+  g_devmode_pending_overrides = true;
+}
+
+void RtlDevModeCheckPendingOverrides(void) {
+  if (!g_devmode_pending_overrides)
+    return;
+  if (game_state != kGameState_8_MainGameplay)
+    return;
+  // Re-apply loadout after loading code may have modified it
+  equipped_items = collected_items = g_devmode_items;
+  equipped_beams = collected_beams = g_devmode_beams;
+  samus_health = g_devmode_health;
+  samus_max_health = g_devmode_max_health;
+  samus_missiles = g_devmode_missiles;
+  samus_max_missiles = g_devmode_max_missiles;
+  samus_super_missiles = g_devmode_supers;
+  samus_max_super_missiles = g_devmode_max_supers;
+  samus_power_bombs = g_devmode_pbombs;
+  samus_max_power_bombs = g_devmode_max_pbombs;
+  RtlSynchronizeWholeState();
+  g_devmode_pending_overrides = false;
 }

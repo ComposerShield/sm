@@ -21,6 +21,7 @@
 #include "config.h"
 #include "util.h"
 #include "spc_player.h"
+#include "devmode.h"
 
 #ifdef __SWITCH__
 #include "switch_impl.h"
@@ -195,6 +196,9 @@ static void DrawPpuFrameWithPerf(void) {
 
   if (g_got_mismatch_count)
     RenderNumber(pixel_buffer + pitch * render_scale, pitch, g_got_mismatch_count, render_scale == 4);
+
+  if (DevMode_IsOpen())
+    DevMode_Render(pixel_buffer, g_snes_width * render_scale, g_snes_height * render_scale, pitch);
 
   g_renderer_funcs.EndDraw();
 }
@@ -479,10 +483,22 @@ int main(int argc, char** argv) {
         }
         break;
       case SDL_KEYDOWN:
-        HandleInput(event.key.keysym.sym, event.key.keysym.mod, true);
+        if (DevMode_IsOpen()) {
+          // F11 still handled normally so it can close the menu via HandleCommand
+          if (event.key.keysym.sym == SDLK_BACKQUOTE) {
+            HandleInput(event.key.keysym.sym, event.key.keysym.mod, true);
+          } else {
+            DevMode_HandleInput(event.key.keysym.sym, true);
+            if (!DevMode_IsOpen())
+              g_paused = false;
+          }
+        } else {
+          HandleInput(event.key.keysym.sym, event.key.keysym.mod, true);
+        }
         break;
       case SDL_KEYUP:
-        HandleInput(event.key.keysym.sym, event.key.keysym.mod, false);
+        if (!DevMode_IsOpen())
+          HandleInput(event.key.keysym.sym, event.key.keysym.mod, false);
         break;
       case SDL_QUIT:
         running = false;
@@ -497,6 +513,8 @@ int main(int argc, char** argv) {
     }
 
     if (g_paused) {
+      if (DevMode_IsOpen())
+        DrawPpuFrameWithPerf();
       SDL_Delay(16);
       continue;
     }
@@ -508,6 +526,7 @@ int main(int argc, char** argv) {
     inputs |= g_gamepad_buttons;
 
     uint8 is_replay = RtlRunFrame(inputs);
+    RtlDevModeCheckPendingOverrides();
 
     frameCtr++;
     g_snes->disableRender = (g_turbo ^ (is_replay & g_replay_turbo)) && (frameCtr & (g_turbo ? 0xf : 0x7f)) != 0;
@@ -683,6 +702,13 @@ static void HandleCommand(uint32 j, bool pressed) {
       break;
     case kKeys_VolumeUp:
     case kKeys_VolumeDown: HandleVolumeAdjustment(j == kKeys_VolumeUp ? 1 : -1); break;
+    case kKeys_DevMode:
+      DevMode_Toggle();
+      if (DevMode_IsOpen())
+        g_paused = true;
+      else
+        g_paused = false;
+      break;
     default: assert(0);
     }
   }
