@@ -1,4 +1,5 @@
 #include "devmode.h"
+#include "flashshift.h"
 #include "sm_rtl.h"
 #include "variables.h"
 #include "ida_types.h"
@@ -191,6 +192,7 @@ enum {
   kSection_PBombs,
   kSection_Items,
   kSection_Beams,
+  kSection_Extras,
   kSection_Count,
 };
 
@@ -207,6 +209,8 @@ static struct {
   uint16 pbombs, max_pbombs;
   uint16 items_mask;
   uint16 beams_mask;
+  int extras_cursor;
+  bool flash_shift;
 } menu = {
   .open = false,
   .section = kSection_Rooms,
@@ -314,6 +318,7 @@ void DevMode_HandleInput(int key, bool pressed) {
                       menu.missiles, menu.max_missiles,
                       menu.supers, menu.max_supers,
                       menu.pbombs, menu.max_pbombs);
+      FlashShift_SetEnabled(menu.flash_shift);
       menu.open = false;
     }
     return;
@@ -325,6 +330,9 @@ void DevMode_HandleInput(int key, bool pressed) {
       else menu.section--;
     } else if (menu.section == kSection_Beams) {
       if (menu.beam_cursor > 0) menu.beam_cursor--;
+      else menu.section--;
+    } else if (menu.section == kSection_Extras) {
+      if (menu.extras_cursor > 0) menu.extras_cursor--;
       else menu.section--;
     } else {
       if (menu.section > 0) menu.section--;
@@ -339,7 +347,9 @@ void DevMode_HandleInput(int key, bool pressed) {
       else menu.section++;
     } else if (menu.section == kSection_Beams) {
       if (menu.beam_cursor < kNumBeams - 1) menu.beam_cursor++;
-      else { /* already at bottom */ }
+      else menu.section++;
+    } else if (menu.section == kSection_Extras) {
+      /* already at bottom */
     } else {
       if (menu.section < kSection_Count - 1) menu.section++;
     }
@@ -388,6 +398,9 @@ void DevMode_HandleInput(int key, bool pressed) {
       menu.items_mask ^= kItems[menu.item_cursor].mask;
     } else if (menu.section == kSection_Beams) {
       menu.beams_mask ^= kBeams[menu.beam_cursor].mask;
+    } else if (menu.section == kSection_Extras) {
+      menu.flash_shift = !menu.flash_shift;
+      FlashShift_SetEnabled(menu.flash_shift);
     }
     return;
   }
@@ -526,6 +539,21 @@ void DevMode_Render(uint8 *pixels, int width, int height, int pitch) {
     }
     cy += 9;
   }
+  cy += 2;
+
+  // Extras
+  DrawString(pixels, pitch, cx, cy, "EXTRAS:", cyan);
+  cy += 9;
+  {
+    bool on = menu.flash_shift;
+    bool sel = (menu.section == kSection_Extras && menu.extras_cursor == 0);
+    uint32 c = sel ? yellow : white;
+    char buf[16];
+    buf[0] = '['; buf[1] = on ? 'x' : ' '; buf[2] = ']'; buf[3] = ' '; buf[4] = 0;
+    DrawString(pixels, pitch, cx, cy, buf, c);
+    DrawString(pixels, pitch, cx + 32, cy, "Flash Shift", c);
+  }
+  cy += 9;
   cy += 2;
 
   // Footer

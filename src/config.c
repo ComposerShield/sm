@@ -43,6 +43,8 @@ static const uint16 kDefaultKbdControls[kKeys_Total] = {
   0, 0,
   // DevMode
   _(SDLK_BACKQUOTE),
+  // FlashShift
+  _(SDLK_g),
 };
 #undef _
 #undef A
@@ -64,6 +66,7 @@ static const KeyNameId kKeyNameId[] = {
   S(ClearKeyLog), S(StopReplay), S(Fullscreen), S(Reset),
   S(Pause), S(PauseDimmed), S(Turbo), S(ReplayTurbo), S(WindowBigger), S(WindowSmaller), S(VolumeUp), S(VolumeDown), S(DisplayPerf), S(ToggleRenderer),
   S(DevMode),
+  S(FlashShift),
 };
 #undef S
 #undef M

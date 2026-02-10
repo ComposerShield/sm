@@ -34,6 +34,7 @@ enum {
   kKeys_VolumeUp,
   kKeys_VolumeDown,
   kKeys_DevMode,
+  kKeys_FlashShift,
   kKeys_Total,
 };
 

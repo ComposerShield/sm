@@ -22,6 +22,7 @@
 #include "util.h"
 #include "spc_player.h"
 #include "devmode.h"
+#include "flashshift.h"
 
 #ifdef __SWITCH__
 #include "switch_impl.h"
@@ -50,6 +51,7 @@ bool g_new_ppu = true;
 bool g_other_image;
 struct SpcPlayer *g_spc_player;
 static uint32_t button_state;
+static bool g_flashshift_key_held;
 
 static uint8_t g_pixels[256 * 4 * 240];
 static uint8_t g_my_pixels[256 * 4 * 240];
@@ -499,6 +501,8 @@ int main(int argc, char** argv) {
       case SDL_KEYUP:
         if (!DevMode_IsOpen())
           HandleInput(event.key.keysym.sym, event.key.keysym.mod, false);
+        else if (FindCmdForSdlKey(event.key.keysym.sym, event.key.keysym.mod) == kKeys_FlashShift)
+          g_flashshift_key_held = false;
         break;
       case SDL_QUIT:
         running = false;
@@ -525,6 +529,7 @@ int main(int argc, char** argv) {
       g_gamepad_buttons = 0;
     inputs |= g_gamepad_buttons;
 
+    FlashShift_Update(g_flashshift_key_held);
     uint8 is_replay = RtlRunFrame(inputs);
     RtlDevModeCheckPendingOverrides();
 
@@ -645,6 +650,11 @@ static void HandleCommand(uint32 j, bool pressed) {
 
   if (j == kKeys_Turbo) {
     g_turbo = pressed;
+    return;
+  }
+
+  if (j == kKeys_FlashShift) {
+    g_flashshift_key_held = pressed;
     return;
   }
 
