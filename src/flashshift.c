@@ -106,14 +106,19 @@ void FlashShift_Update(bool g_key_held) {
     samus_hurt_flash_counter = 3;
   }
 
-  // SFX cutoff: use sound_handler_downtime to silence all SFX channels.
-  // Writing 0 to APUI03 directly doesn't stop the SPC from playing —
-  // it just means "no new request." sound_handler_downtime is the game's
-  // own silencing mechanism, applied DURING RtlRunFrame so nothing
-  // overrides it.
+  // SFX cutoff: queue a short replacement sound on channel 3.
+  // Writing 0 to APUI03 doesn't stop the SPC — it just means "no new
+  // request" and the sustained charge sound keeps playing. To actually
+  // cut it, we must send a NEW sound that replaces it. Sound 0x1 (the
+  // "stop health alarm" sound) is very short and effectively silences
+  // the channel.
   if (fs_sfx_timer > 0) {
-    if (--fs_sfx_timer == 0)
-      sound_handler_downtime = 2;
+    if (--fs_sfx_timer == 0) {
+      sfx_cur[2] = 0;
+      sfx_state[2] = 0;
+      sfx_readpos[2] = sfx_writepos[2];
+      QueueSfx3_Max6(1);
+    }
   }
 
   // --- Active dash movement (multi-frame) ---
