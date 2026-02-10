@@ -31,6 +31,10 @@ static void RtlSynchronizeWholeState(void) {
     g_rtl_syncall();
 }
 
+void RtlSyncAll(void) {
+  RtlSynchronizeWholeState();
+}
+
 // |ptr| must be a pointer into g_ram, will synchronize the RAM memory with the
 // emulator.
 static void RtlSyncMemoryRegion(void *ptr, size_t n) {

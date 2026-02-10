@@ -121,6 +121,7 @@ void RtlSaveSnapshot(const char *filename, bool saving_with_bug);
 void RtlUpdateSnesPatchForBugfix();
 extern uint16 currently_installed_bug_fix_counter;
 
+void RtlSyncAll(void);
 void RtlDevModeWarp(uint8 area, uint8 station,
                      uint16 items, uint16 beams,
                      uint16 health, uint16 max_health,

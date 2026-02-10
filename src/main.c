@@ -23,6 +23,9 @@
 #include "spc_player.h"
 #include "devmode.h"
 #include "flashshift.h"
+#include "tileedit.h"
+#include "variables.h"
+#include "ida_types.h"
 
 #ifdef __SWITCH__
 #include "switch_impl.h"
@@ -330,6 +333,11 @@ int main(int argc, char** argv) {
   } else {
     SwitchDirectory();
   }
+  bool g_editor_mode = false;
+  if (argc >= 1 && strcmp(argv[0], "--editor") == 0) {
+    g_editor_mode = true;
+    argc -= 1, argv += 1;
+  }
   if (argc >= 1 && strcmp(argv[0], "--debug") == 0) {
     g_debug_flag = true;
     argc -= 1, argv += 1;
@@ -393,6 +401,99 @@ int main(int argc, char** argv) {
     Die(buf);
   #endif
     return 1;
+  }
+
+  // Editor mode: branch to tile editor (SDL already initialized above)
+  if (g_editor_mode) {
+    while (1) {
+      int result = TileEdit_MainLoop(snes);
+      if (result == kTileEditResult_Quit)
+        break;
+      if (result == kTileEditResult_Playtest) {
+        // Create game window for playtesting
+        SDL_Window *pt_window = SDL_CreateWindow("SM Tile Editor - Playtest",
+          SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+          g_snes_width * 2, g_snes_height * 2, SDL_WINDOW_RESIZABLE);
+        g_window = pt_window;
+        SDL_Renderer *pt_renderer = SDL_CreateRenderer(pt_window, -1,
+          SDL_RENDERER_SOFTWARE | SDL_RENDERER_PRESENTVSYNC);
+        SDL_RenderSetLogicalSize(pt_renderer, g_snes_width, g_snes_height);
+        SDL_Texture *pt_texture = SDL_CreateTexture(pt_renderer, SDL_PIXELFORMAT_ARGB8888,
+          SDL_TEXTUREACCESS_STREAMING, g_snes_width, g_snes_height);
+
+        PpuBeginDrawing(snes->snes_ppu, g_pixels, 256 * 4, 0);
+        PpuBeginDrawing(snes->my_ppu, g_my_pixels, 256 * 4, 0);
+
+        // Reset game and warp to a room matching the tileset
+        RtlReset(0);
+
+        // Use dev mode warp to get to a room with the right tileset loaded
+        uint8 pt_area, pt_station;
+        TileEdit_GetPlaytestWarp(&pt_area, &pt_station);
+        RtlDevModeWarp(
+          pt_area, pt_station,
+          0x332F, 0x100F,  // All items, all beams
+          1499, 1499, 50, 50, 10, 10, 10, 10);
+
+        // Run game loop until backtick is pressed
+        bool pt_running = true;
+        bool injected = false;
+        while (pt_running) {
+          SDL_Event event;
+          while (SDL_PollEvent(&event)) {
+            switch (event.type) {
+            case SDL_QUIT: pt_running = false; break;
+            case SDL_KEYDOWN:
+              if (event.key.keysym.sym == SDLK_BACKQUOTE ||
+                  event.key.keysym.sym == SDLK_ESCAPE) {
+                pt_running = false;
+              } else {
+                HandleInput(event.key.keysym.sym, event.key.keysym.mod, true);
+              }
+              break;
+            case SDL_KEYUP:
+              HandleInput(event.key.keysym.sym, event.key.keysym.mod, false);
+              break;
+            }
+          }
+
+          // Run one game frame
+          int inputs = g_input1_state;
+          RtlRunFrame(inputs);
+          RtlDevModeCheckPendingOverrides();
+
+          // After game reaches main gameplay, inject custom room
+          if (!injected && game_state == kGameState_8_MainGameplay) {
+            TileEdit_InjectCustomRoom();
+            injected = true;
+          }
+
+          // Render the frame
+          {
+            uint8 *pixel_buffer = NULL;
+            int pitch = 0;
+            SDL_Rect rect = {0, 0, g_snes_width, g_snes_height};
+            SDL_LockTexture(pt_texture, &rect, (void **)&pixel_buffer, &pitch);
+            RtlDrawPpuFrame(pixel_buffer, pitch, 0);
+            SDL_UnlockTexture(pt_texture);
+            SDL_RenderClear(pt_renderer);
+            SDL_RenderCopy(pt_renderer, pt_texture, &rect, NULL);
+            SDL_RenderPresent(pt_renderer);
+          }
+
+          SDL_Delay(16);
+        }
+
+        // Cleanup playtest window
+        g_input1_state = 0;
+        SDL_DestroyTexture(pt_texture);
+        SDL_DestroyRenderer(pt_renderer);
+        SDL_DestroyWindow(pt_window);
+        g_window = NULL;
+      }
+    }
+    SDL_Quit();
+    return 0;
   }
 
   SDL_Window *window = SDL_CreateWindow(kWindowTitle, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, window_width, window_height, g_win_flags);
