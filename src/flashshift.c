@@ -2,6 +2,7 @@
 #include "variables.h"
 #include "ida_types.h"
 #include "funcs.h"
+#include "sm_rtl.h"
 
 // Flash Shift: Metroid Dread-style instant dash with 3-charge system
 //
@@ -11,19 +12,25 @@
 
 enum {
   kFlashShift_StepSize = 4,
-  kFlashShift_Steps = 16,           // 64px total / 4px per step
+  kFlashShift_Steps = 20,           // 80px total / 4px per step (5 tiles)
   kFlashShift_MaxCharges = 3,
   kFlashShift_Cooldown = 20,        // frames between uses
   kFlashShift_EmptyCooldown = 60,   // frames when all charges spent
   kFlashShift_RegenTime = 20,       // frames to regen one charge
-  kFlashShift_Invincibility = 18,   // frames of post-shift i-frames
+  kFlashShift_Invincibility = 30,   // frames of post-shift i-frames (blink)
+  kFlashShift_FlashFrames = 24,     // frames of white palette flash
+  kFlashShift_FreezeFrames = 10,    // frames of forced zero momentum
+  kFlashShift_SfxDuration = 15,    // frames before cutting the SFX (~0.25s)
 };
 
 static bool fs_enabled;
 static uint8 fs_charges = kFlashShift_MaxCharges;
 static uint16 fs_regen_timer;
 static uint16 fs_cooldown;
-static bool fs_prev_combo;  // previous state of (G held + direction held)
+static uint16 fs_freeze_timer;  // frames remaining of post-shift movement freeze
+static uint16 fs_flash_timer;   // frames remaining of white palette flash
+static uint16 fs_sfx_timer;     // frames until we cut the shift SFX
+static bool fs_prev_combo;      // previous state of (G held + direction held)
 
 bool FlashShift_IsEnabled(void) {
   return fs_enabled;
@@ -63,6 +70,38 @@ static bool IsMovementTypeAllowed(void) {
 void FlashShift_Update(bool g_key_held) {
   if (!fs_enabled)
     return;
+
+  // Post-shift movement freeze: zero all momentum each frame
+  if (fs_freeze_timer > 0) {
+    fs_freeze_timer--;
+    samus_x_base_speed = 0;
+    samus_x_base_subspeed = 0;
+    samus_x_extra_run_speed = 0;
+    samus_x_extra_run_subspeed = 0;
+    samus_y_speed = 0;
+    samus_y_subspeed = 0;
+  }
+
+  // Post-shift flash: keep resetting hurt_flash_counter to 3 so the
+  // white palette flash cycles continuously (odd=white, even=normal).
+  // Value 3 skips the damage SFX trigger at counter==2.
+  if (fs_flash_timer > 0) {
+    fs_flash_timer--;
+    samus_hurt_flash_counter = 3;
+  }
+
+  // Cut the shift SFX after the timer expires.
+  // Fully reset channel 3: silence the APU, clear the current sound,
+  // reset the state machine, and flush the queue so pending footstep
+  // sounds don't immediately replace our sound mid-play.
+  if (fs_sfx_timer > 0) {
+    if (--fs_sfx_timer == 0) {
+      RtlApuWrite(APUI03, 0);
+      sfx_cur[2] = 0;
+      sfx_state[2] = 0;
+      sfx_readpos[2] = sfx_writepos[2];
+    }
+  }
 
   // Tick charge regeneration
   if (fs_charges < kFlashShift_MaxCharges) {
@@ -171,9 +210,18 @@ void FlashShift_Update(bool g_key_held) {
     UpdatePreviousLayerBlocks();
   }
 
-  // Invincibility frames (Samus blinks on/off at 30Hz)
+  // Post-shift effects
   samus_invincibility_timer = kFlashShift_Invincibility;
-  // Visible white damage flash: start at 3 to skip the damage SFX trigger
-  // at counter==2. Produces 2 frames of white flash (at 3 and 5).
   samus_hurt_flash_counter = 3;
+  fs_flash_timer = kFlashShift_FlashFrames;
+  fs_freeze_timer = kFlashShift_FreezeFrames;
+
+  // Shinespark charge SFX on channel 3, cut short after ~0.25s.
+  // Flush any pending channel 3 sounds first so footsteps etc. don't
+  // play instead of our shift sound.
+  sfx_readpos[2] = sfx_writepos[2];
+  sfx_state[2] = 0;
+  sfx_cur[2] = 0;
+  QueueSfx3_Max9(0xC);
+  fs_sfx_timer = kFlashShift_SfxDuration;
 }
